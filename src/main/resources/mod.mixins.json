@@ -1,0 +1,10 @@
+{
+  "required": true,
+  "minVersion": "0.8.7",
+  "target": "@env(DEFAULT)",
+  "package": "example.mixin",
+  "compatibilityLevel": "JAVA_6",
+  "refmap": "${mixin_refmap}",
+  "mixins": ["WorldMixin"],
+  "injectors": { "defaultRequire": 1 }
+}

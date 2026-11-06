@@ -1,0 +1,116 @@
+name: Verify toolchain
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      loom-ref:
+        description: 'Loom commit/tag/branch for coordinated candidate verification'
+        type: string
+        default: main
+      mixin-ref:
+        description: 'Mixin commit/tag/branch for coordinated candidate verification'
+        type: string
+        default: main
+      bytecode-target:
+        description: 'Mod bytecode (7 is a disposable-checkout experiment; supported default is 6)'
+        type: choice
+        options: ['6', '7']
+        default: '6'
+  workflow_call:
+    inputs:
+      bytecode-target:
+        type: string
+        default: '6'
+      loom-ref:
+        type: string
+        default: main
+      mixin-ref:
+        type: string
+        default: main
+
+permissions:
+  contents: read
+
+jobs:
+  integration:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          repository: DesideriumMC/RetrospectumModTemplate
+          ref: ${{ github.repository == 'DesideriumMC/RetrospectumModTemplate' && github.sha || 'main' }}
+          path: template
+      - uses: actions/checkout@v7
+        with:
+          repository: DesideriumMC/RetrospectumLoom
+          ref: ${{ inputs.loom-ref || 'main' }}
+          path: loom
+      - uses: actions/checkout@v7
+        with:
+          repository: DesideriumMC/RetrospectumMixin
+          ref: ${{ inputs.mixin-ref || 'main' }}
+          path: mixin
+      - uses: actions/setup-java@v6
+        id: java7
+        with:
+          distribution: zulu
+          java-version: '7'
+      - uses: actions/setup-java@v6
+        id: java8
+        with:
+          distribution: temurin
+          java-version: '8'
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - uses: gradle/actions/setup-gradle@v6
+      - name: Build current shared runtime
+        env:
+          JDK7: ${{ steps.java7.outputs.path }}
+          JDK8: ${{ steps.java8.outputs.path }}
+        run: |
+          bash mixin/gradlew -p mixin --no-daemon --console=plain "-Pjava7Home=$JDK7" "-Porg.gradle.java.installations.paths=$JDK7,$JDK8,$JAVA_HOME" :mixin-bootstrap:runtimeJar
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          version = dict(line.split('=', 1) for line in Path('mixin/gradle.properties').read_text().splitlines() if '=' in line)['version']
+          path = Path(f'mixin/runtime/mixin-bootstrap/build/libs/retrospectum-mixin-{version}.jar').resolve()
+          with open(os.environ['GITHUB_ENV'], 'a') as env:
+              env.write(f'MIXIN_RUNTIME={path}\n')
+          PY
+      - name: Build template and verify development and distribution servers
+        env:
+          JDK7: ${{ steps.java7.outputs.path }}
+          JDK8: ${{ steps.java8.outputs.path }}
+        run: >-
+          python template/scripts/verify_toolchain.py
+          --loom loom --mixin "$MIXIN_RUNTIME" --output verification
+          --remapper-probe mixin/scripts/verify_remapper_failure.py
+          --bytecode-target "${{ inputs.bytecode-target || '6' }}"
+          --game-java "$JDK7/bin/java" --game-java "$JDK8/bin/java"
+          --gradle-property "java7Home=$JDK7"
+          --gradle-property "org.gradle.java.installations.paths=$JDK7,$JDK8,$JAVA_HOME"
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: toolchain-reports-${{ runner.os }}-target${{ inputs.bytecode-target || '6' }}
+          path: |
+            verification/*.log
+            verification/result.json
+            verification/template/build/publications/
+            verification/template/build/reports/
+          if-no-files-found: ignore
