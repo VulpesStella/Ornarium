@@ -20,3 +20,5 @@ libs/*
 
 .vscode/
 *.launch
+
+/.development/

@@ -1,58 +1,25 @@
-# Retrospectum Mod Template
+# Ornarium
 
-Starter project for Minecraft 1.6.4 / Forge 9.11.1.1345 with Retrospectum Loom
-and the shared Retrospectum Mixin bootstrap.
+Ornarium brings the classic Baubles equipment layout to Minecraft 1.6.4 with Forge. It adds one amulet slot, two ring slots and one belt slot for items supplied by compatible mods.
 
-## Start
+## Play
 
-1. Use this template, clone it, and run setup.
-2. Edit mod metadata in `gradle.properties` and the project name in `settings.gradle`.
-3. Build and generate IDE configurations:
+Install the release JAR in the `mods` directory of both the client and the server. Ornarium targets Forge 9.11.1.1345.
 
-   ```powershell
-   # Windows x64, PowerShell 5.1+
-   ./setup.ps1
-   ./build.ps1 build genSources genIdeaRuns
-   ```
+Press **B** in game to open the accessory inventory. You can change the key in Controls. Click to move items between slots or shift-click to equip or remove an accessory. Equipped items are saved with the player. On death they follow the world's `keepInventory` rule.
 
-   ```sh
-   # Linux x86_64 with glibc, Bash, curl, tar and GNU utilities
-   ./setup.sh
-   ./build.sh build genSources genIdeaRuns
-   ```
+## Integrate
 
-4. Open the project in IntelliJ IDEA, select JDK 17 for its Gradle JVM, and let
-   Gradle import finish. Start the generated Retrospectum client/server Gradle
-   configuration, or run `./build.ps1 runClient` (`./build.sh runClient` on Linux).
-5. Distribute `build/libs/<mod_id>-retrospectum-1.6.4-<version>.jar` and require
-   Retrospectum Mixin alongside it. The `-dev.jar` is for development only.
+Add the Ornarium development JAR to your compile classpath and declare `required-after:ornarium` in your Forge mod dependencies. Implement `io.github.vulpesstella.ornarium.api.IOrnarium` on an item and return an `OrnariumTypes` value from `getOrnariumType(ItemStack)`. The item controls whether it can be equipped and removed, and receives equip, unequip and worn-tick callbacks on the logical server. Use the worn-tick callback for behavior that must continue after loading or respawning. Permission checks should be side-effect free and may run on either side during container interaction.
 
-If Windows blocks the script, invoke it with
-`powershell -NoProfile -ExecutionPolicy Bypass -File ./setup.ps1` (and similarly
-for `build.ps1`). This changes policy only for that invocation.
+Read equipped items on the server with `OrnariumApi.getEquipped`. To support right-click equip, call `OrnariumApi.tryEquip(player, stack)` from your item's right-click handler. On success, it consumes one item from the supplied stack.
 
-JDK 17 runs Gradle, JDK 8 compiles/AP, and Java 7 or 8 runs the game. Setup finds
-installed JDKs or installs pinned, verified packages under project `.jdks/`.
-Machine-local paths are recorded in ignored files; setup creates no global SDK links.
-macOS, ARM and musl Linux are outside the supported setup/test matrix.
+## Build
 
-## Automated builds
+Use JDK 17 to run the Gradle wrapper, JDK 8 to compile, and JDK 7 for the target API. Set `JDK7` and `JDK8` to the corresponding installation directories and pass `-Pjava7Home=<JDK 7 path>` to the wrapper.
 
-The **Build mod** GitHub Actions workflow runs on pushes and pull requests, and
-can also be started manually. It builds this project using the Loom and Mixin
-versions in `gradle.properties`, with Java 7 APIs, the Java 8 compiler and Gradle
-on Java 17.
+Run `./gradlew build` (or `gradlew.bat build` on Windows) with that option. Use the JAR without the `-dev` suffix from `build/libs` for installation.
 
-Download `mod-<commit SHA>` from the workflow run's **Artifacts** section to get
-the distributable SRG JAR. Development (`-dev.jar`) archives are excluded.
-Artifacts are retained for 14 days. Failed builds upload available reports
-for 7 days. Install Retrospectum Mixin separately alongside the mod.
+## Credits
 
-## Next steps
-
-- [Development, Mixin mapping and local toolchain verification](docs/DEVELOPMENT.md)
-- [Compatibility](docs/COMPATIBILITY.md), [troubleshooting](docs/TROUBLESHOOTING.md)
-- [Loom reference](https://github.com/DesideriumMC/RetrospectumLoom/blob/main/docs/REFERENCE.md)
-
-MIT; see [LICENSE](LICENSE). Keep upstream notices and choose the appropriate
-license and copyright statement for your own mod before publishing it.
+Ornarium is inspired by [Baubles by Azanor](https://github.com/Azanor/Baubles). [Baubles MITE](https://modrinth.com/mod/baubles-mite) provides a separate implementation for FishModLoader.

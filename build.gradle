@@ -6,9 +6,7 @@ group = providers.gradleProperty('mod_group').get()
 
 def modId = providers.gradleProperty('mod_id').get()
 def modName = providers.gradleProperty('mod_name').get()
-def mixinConfigName = "${modId}.mixins.json"
-def mixinRefmapName = "${modId}.mixins.refmap.json"
-base.archivesName = "${modId}-retrospectum-1.6.4"
+base.archivesName = "${modId}-forge-1.6.4"
 
 def generatedConstants = layout.buildDirectory.dir('generated/sources/modConstants/java')
 def generateModConstants = tasks.register('generateModConstants') {
@@ -16,12 +14,12 @@ def generateModConstants = tasks.register('generateModConstants') {
     inputs.properties(values)
     outputs.dir(generatedConstants)
     doLast {
-        def output = generatedConstants.get().file('example/BuildConstants.java').asFile
+        def output = generatedConstants.get().file('io/github/vulpesstella/ornarium/BuildConstants.java').asFile
         output.parentFile.mkdirs()
         def fields = values.collect { key, value ->
             "    public static final String ${key} = ${groovy.json.JsonOutput.toJson(value)};"
         }.join('\n')
-        output.setText("package example;\n\npublic final class BuildConstants {\n${fields}\n    private BuildConstants() {}\n}\n", 'UTF-8')
+        output.setText("package io.github.vulpesstella.ornarium;\n\npublic final class BuildConstants {\n${fields}\n    private BuildConstants() {}\n}\n", 'UTF-8')
     }
 }
 sourceSets.main.java.srcDir(generateModConstants)
@@ -37,42 +35,20 @@ tasks.named('processResources', ProcessResources) {
         mod_credits: providers.gradleProperty('mod_credits').getOrElse('')
     ].collectEntries { key, value -> [(key): groovy.json.JsonOutput.toJson(value)] }
     inputs.property('modInfo', modInfo)
-    inputs.properties(mod_id: modId, mixin_refmap: mixinRefmapName)
     filesMatching('mcmod.info') { expand(modInfo) }
-    filesMatching('mod.mixins.json') {
-        expand(mixin_refmap: mixinRefmapName)
-        name = mixinConfigName
-    }
 }
 
-def mixinCheckout = providers.gradleProperty('retrospectumMixinCheckout').orNull
-def mixinVersion = providers.gradleProperty('mixin_version').getOrElse('0.2.0')
-def localBootstrap = providers.gradleProperty('mixin_bootstrap').orNull
-
-repositories {
-    maven {
-        url = uri(providers.gradleProperty('retrospectumMavenUrl').getOrElse('https://maven.desiderium.dev/releases/'))
-        content { includeGroup 'dev.desiderium.retro' }
-    }
-    maven { url = 'https://repo.spongepowered.org/repository/maven-public/'; content { includeGroup 'org.spongepowered' } }
-}
 dependencies {
     minecraft 'com.mojang:minecraft:1.6.4'
     forge 'net.minecraftforge:forge:1.6.4-9.11.1.1345:universal'
     mappings 'net.minecraftforge:forge:1.6.4-9.11.1.1345:src@zip'
-    if (mixinCheckout) {
-        mixinBootstrap files("${mixinCheckout}/runtime/mixin-bootstrap/build/libs/retrospectum-mixin-${mixinVersion}.jar")
-    } else if (localBootstrap) {
-        mixinBootstrap files(localBootstrap)
-    } else {
-        mixinBootstrap "dev.desiderium.retro:retrospectum-mixin:${mixinVersion}"
-    }
-    annotationProcessor 'org.spongepowered:mixin:0.8.7:processor'
 }
-retrospectum.mixin('main', mixinRefmapName)
-retrospectum.mixinConfig(mixinConfigName)
 
-// Java variants expose the SRG release archive; dependency scopes follow Gradle conventions.
+// Loom 0.2.1 adds the Mixin tweaker to development runs even without a bootstrap dependency.
+tasks.withType(JavaExec).matching { it.name in ['runClient', 'runServer'] }.configureEach {
+    args = args.findAll { it != '--tweakClass=dev.desiderium.retro.mixin.bootstrap.RetroMixinTweaker' }
+}
+
 publishing {
     publications {
         mod(MavenPublication) { from components.java }

@@ -23,4 +23,4 @@ pluginManagement {
     def checkout = providers.gradleProperty('retrospectumLoomCheckout').orNull
     if (checkout) includeBuild(checkout)
 }
-rootProject.name = 'example-mod'
+rootProject.name = 'Ornarium'
