@@ -19,11 +19,20 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - name: Install Java 7 target API
-        uses: actions/setup-java@v6
         id: java7
-        with:
-          distribution: zulu
-          java-version: '7'
+        shell: bash
+        run: |
+          row=$(awk -F '\t' '$1 == "linux-x64" && $2 == 7 { print }' gradle/jdks.lock.tsv)
+          IFS=$'\t' read -r platform major version url sha <<< "$row"
+          archive="$RUNNER_TEMP/jdk7.tar.gz"
+          jdk="$RUNNER_TEMP/jdk7"
+          curl --fail --silent --show-error --location --retry 3 --output "$archive" "$url"
+          printf '%s  %s\n' "$sha" "$archive" | sha256sum --check
+          mkdir -p "$jdk"
+          tar -xzf "$archive" --strip-components=1 -C "$jdk"
+          test -x "$jdk/bin/javac"
+          test -f "$jdk/jre/lib/rt.jar"
+          printf 'path=%s\n' "$jdk" >> "$GITHUB_OUTPUT"
       - name: Install Java 8 compiler
         uses: actions/setup-java@v6
         id: java8
@@ -36,12 +45,51 @@ jobs:
           distribution: temurin
           java-version: '17'
       - uses: gradle/actions/setup-gradle@v6
+      - name: Provision verified Forge archives
+        shell: bash
+        run: |
+          repository_root="$RUNNER_TEMP/verified-forge"
+          forge_version=1.6.4-9.11.1.1345
+          forge_path="net/minecraftforge/forge/$forge_version"
+          mkdir -p "$repository_root/$forge_path"
+          cd "$repository_root"
+
+          fetch() {
+            local path="$forge_path/$1" sha="$2" repository
+            for repository in https://maven.minecraftforge.net https://bmclapi2.bangbang93.com/maven; do
+              if curl -fsSL --max-time 30 -o "$path" "$repository/$path" &&
+                 printf '%s  %s\n' "$sha" "$path" | sha256sum --check; then
+                return 0
+              fi
+            done
+            echo "Could not fetch the verified Forge artifact: $1" >&2
+            return 1
+          }
+
+          fetch "forge-$forge_version-src.zip" 8543c4bbc02ace1fc72b9a85b38c01276eef07080f86bae847c1696af5ee749f
+          fetch "forge-$forge_version-universal.jar" 7acfb321c4b1fd35253b73dd2715f47cf3c38ee3ec4586d762c217114697df01
+          printf 'VERIFIED_FORGE_REPOSITORY=%s\n' "$repository_root" >> "$GITHUB_ENV"
+          cat > "$RUNNER_TEMP/verified-forge.gradle" <<'GRADLE'
+          gradle.beforeProject { project ->
+              project.repositories.exclusiveContent {
+                  forRepository {
+                      project.repositories.maven {
+                          name = 'VerifiedForge'
+                          url = project.uri(System.getenv('VERIFIED_FORGE_REPOSITORY'))
+                          metadataSources { artifact() }
+                      }
+                  }
+                  filter { includeVersion('net.minecraftforge', 'forge', '1.6.4-9.11.1.1345') }
+              }
+          }
+          GRADLE
       - name: Build mod
         env:
           JDK7: ${{ steps.java7.outputs.path }}
           JDK8: ${{ steps.java8.outputs.path }}
         run: >-
           bash ./gradlew --no-daemon --console=plain
+          -I "$RUNNER_TEMP/verified-forge.gradle"
           "-Pjava7Home=$JDK7"
           "-Porg.gradle.java.installations.paths=$JDK7,$JDK8,$JAVA_HOME"
           clean build
