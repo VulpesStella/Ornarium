@@ -1,0 +1,9 @@
+item.ornariumdebug.amulet.name=调试项链
+item.ornariumdebug.ring.name=调试戒指
+item.ornariumdebug.belt.name=调试腰带
+ornariumdebug.equipped=[Ornarium 调试] 已装备 %s
+ornariumdebug.unequipped=[Ornarium 调试] 已卸下 %s
+ornariumdebug.worn=[Ornarium 调试] %s 正在触发佩戴回调
+item.ornariumdebug.charm.name=调试护符
+ornariumdebug.slot.charm=护符
+ornariumdebug.group.testing=调试饰品

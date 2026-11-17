@@ -44,9 +44,23 @@ dependencies {
     mappings 'net.minecraftforge:forge:1.6.4-9.11.1.1345:src@zip'
 }
 
+sourceSets {
+    debug {
+        compileClasspath += main.output + main.compileClasspath
+    }
+}
+
+def debugJar = tasks.register('debugJar', Jar) {
+    archiveClassifier = 'debug-accessories'
+    destinationDirectory = layout.buildDirectory.dir('debug')
+    from sourceSets.debug.output
+}
+
 // Loom 0.2.1 adds the Mixin tweaker to development runs even without a bootstrap dependency.
 tasks.withType(JavaExec).matching { it.name in ['runClient', 'runServer'] }.configureEach {
     args = args.findAll { it != '--tweakClass=dev.desiderium.retro.mixin.bootstrap.RetroMixinTweaker' }
+    dependsOn debugJar
+    classpath(debugJar.flatMap { it.archiveFile })
 }
 
 publishing {

@@ -1,24 +1,34 @@
 package io.github.vulpesstella.ornarium.api;
 
 import io.github.vulpesstella.ornarium.Accessories;
+import io.github.vulpesstella.ornarium.SlotRegistry;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
+import net.minecraft.util.ResourceLocation;
 
 public final class OrnariumApi {
-    public static final int AMULET = 0;
-    public static final int FIRST_RING = 1;
-    public static final int SECOND_RING = 2;
-    public static final int BELT = 3;
+    public static final SlotReference AMULET = new SlotReference(OrnariumTypes.AMULET, 0);
+    public static final SlotReference FIRST_RING = new SlotReference(OrnariumTypes.RING, 0);
+    public static final SlotReference SECOND_RING = new SlotReference(OrnariumTypes.RING, 1);
+    public static final SlotReference BELT = new SlotReference(OrnariumTypes.BELT, 0);
 
     private OrnariumApi() {}
 
-    public static OrnariumTypes getSlotType(int slot) {
-        return Accessories.getType(slot);
+    /** Register during Forge pre-initialization or initialization. */
+    public static void registerSlotType(SlotType type) {
+        SlotRegistry.register(type);
     }
 
-    /** Returns a copy of the equipped stack. Read authoritative equipment on the server. */
-    public static ItemStack getEquipped(EntityPlayer player, int slot) {
-        ItemStack stack = Accessories.of(player).getStackInSlot(slot);
+    /** Requests a default capacity. The largest request for each type wins. */
+    public static void requestSlots(ResourceLocation type, int count) {
+        SlotRegistry.request(type, count);
+    }
+
+    /** Returns a copy of the equipped stack, or null when the slot is unavailable or empty. */
+    public static ItemStack getEquipped(EntityPlayer player, SlotReference slot) {
+        Accessories equipment = Accessories.of(player);
+        int index = equipment.layout().indexOf(slot);
+        ItemStack stack = index < 0 ? null : equipment.getStackInSlot(index);
         return stack == null ? null : stack.copy();
     }
 
@@ -28,12 +38,11 @@ public final class OrnariumApi {
             return false;
         }
         Accessories equipment = Accessories.of(player);
-        for (int slot = 0; slot < equipment.getSizeInventory(); slot++) {
-            if (equipment.getStackInSlot(slot) == null && equipment.isItemValidForSlot(slot, source)) {
-                equipment.setInventorySlotContents(slot, source.splitStack(1));
-                return true;
-            }
+        int slot = equipment.findFreeSlot(source);
+        if (slot < 0) {
+            return false;
         }
-        return false;
+        equipment.setInventorySlotContents(slot, source.splitStack(1));
+        return true;
     }
 }

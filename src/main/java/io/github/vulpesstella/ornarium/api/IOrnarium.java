@@ -1,11 +1,14 @@
 package io.github.vulpesstella.ornarium.api;
 
+import java.util.Collection;
+
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.item.ItemStack;
+import net.minecraft.util.ResourceLocation;
 
-/** Implement on an Item to make it wearable. Callbacks run on the logical server. */
+/** Implement on an Item to provide slot choices and server-side equipment callbacks. */
 public interface IOrnarium {
-    OrnariumTypes getOrnariumType(ItemStack stack);
+    Collection<ResourceLocation> getOrnariumTypes(ItemStack stack);
     boolean canEquip(ItemStack stack, EntityLivingBase wearer);
     boolean canUnequip(ItemStack stack, EntityLivingBase wearer);
     void onEquipped(ItemStack stack, EntityLivingBase wearer);

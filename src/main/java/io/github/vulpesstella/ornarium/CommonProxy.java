@@ -7,9 +7,11 @@ import net.minecraft.world.World;
 public class CommonProxy implements IGuiHandler {
     public void initialize() {}
 
+    public void receivePacket(EntityPlayer player, byte[] payload) {}
+
     @Override
     public Object getServerGuiElement(int id, EntityPlayer player, World world, int x, int y, int z) {
-        return id == 0 ? new AccessoryContainer(player) : null;
+        return id == 0 && x >= 0 && x < SlotRegistry.layout().pageCount() ? new AccessoryContainer(player, x) : null;
     }
 
     @Override

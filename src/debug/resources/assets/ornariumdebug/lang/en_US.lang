@@ -1,0 +1,9 @@
+item.ornariumdebug.amulet.name=Debug Amulet
+item.ornariumdebug.ring.name=Debug Ring
+item.ornariumdebug.belt.name=Debug Belt
+ornariumdebug.equipped=[Ornarium Debug] Equipped %s
+ornariumdebug.unequipped=[Ornarium Debug] Unequipped %s
+ornariumdebug.worn=[Ornarium Debug] Worn tick from %s
+item.ornariumdebug.charm.name=Debug Charm
+ornariumdebug.slot.charm=Charm
+ornariumdebug.group.testing=Debug Accessories

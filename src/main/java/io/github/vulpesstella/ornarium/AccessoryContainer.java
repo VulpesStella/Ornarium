@@ -1,18 +1,24 @@
 package io.github.vulpesstella.ornarium;
 
 import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.inventory.Container;
 import net.minecraft.inventory.Slot;
 import net.minecraft.item.ItemStack;
+import net.minecraft.util.ChatMessageComponent;
 
 public final class AccessoryContainer extends Container {
     private final Accessories equipment;
     private final int inventoryStart;
     private final int hotbarStart;
+    private final int pageIndex;
+    private final SlotLayout.Page page;
 
-    public AccessoryContainer(EntityPlayer player) {
+    public AccessoryContainer(EntityPlayer player, int pageIndex) {
         equipment = Accessories.of(player);
-        inventoryStart = equipment.getSizeInventory();
+        this.pageIndex = pageIndex;
+        page = equipment.layout().page(pageIndex);
+        inventoryStart = page.size();
         hotbarStart = inventoryStart + 27;
         for (int slot = 0; slot < inventoryStart; slot++) {
             addSlotToContainer(new AccessorySlot(slot));
@@ -23,6 +29,9 @@ public final class AccessoryContainer extends Container {
             addSlotToContainer(new Slot(player.inventory, index, 8 + 18 * (slot % 9), y));
         }
     }
+
+    public int pageIndex() { return pageIndex; }
+    public SlotLayout layout() { return equipment.layout(); }
 
     @Override
     public boolean canInteractWith(EntityPlayer player) {
@@ -43,6 +52,10 @@ public final class AccessoryContainer extends Container {
 
     @Override
     public ItemStack transferStackInSlot(EntityPlayer player, int index) {
+        if (player.worldObj.isRemote && layout().pageCount() > 1) {
+            // The client has only the current page's contents. Let vanilla reconcile the click.
+            return null;
+        }
         Slot slot = getSlot(index);
         if (!slot.getHasStack() || !slot.canTakeStack(player)) {
             return null;
@@ -56,16 +69,16 @@ public final class AccessoryContainer extends Container {
             }
             slot.putStack(null);
         } else {
-            boolean equipped = false;
-            for (int target = 0; target < inventoryStart; target++) {
-                Slot destination = getSlot(target);
-                if (!destination.getHasStack() && destination.isItemValid(stack)) {
-                    destination.putStack(stack.splitStack(1));
-                    equipped = true;
-                    break;
+            int target = equipment.findFreeSlot(stack);
+            if (target >= 0) {
+                equipment.setInventorySlotContents(target, stack.splitStack(1));
+                int targetPage = layout().pageOf(target);
+                if (targetPage != pageIndex && player instanceof EntityPlayerMP) {
+                    ((EntityPlayerMP) player).sendChatToPlayer(ChatMessageComponent.createFromTranslationWithSubstitutions(
+                        "ornarium.equipped.page",
+                        ChatMessageComponent.createFromTranslationKey(layout().type(target).nameKey), targetPage + 1));
                 }
-            }
-            if (!equipped && !(index < hotbarStart
+            } else if (!(index < hotbarStart
                 ? mergeItemStack(stack, hotbarStart, inventorySlots.size(), false)
                 : mergeItemStack(stack, inventoryStart, hotbarStart, false))) {
                 return null;
@@ -82,7 +95,7 @@ public final class AccessoryContainer extends Container {
 
     private final class AccessorySlot extends Slot {
         AccessorySlot(int slot) {
-            super(equipment, slot, 8, 12 + 16 * slot);
+            super(equipment, page.start + slot, 8 + 18 * (slot % 9), 20 + 18 * (slot / 9));
         }
 
         @Override
